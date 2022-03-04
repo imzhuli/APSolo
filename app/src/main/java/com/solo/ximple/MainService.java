@@ -112,7 +112,7 @@ public class MainService extends Service {
                     return "";
                 }
             }
-            catch (NoSuchMethodException e) {
+            catch (Exception e) {
                 Log.e(TAG, "getDeviceId: " + e.getMessage());
             }
             assert mTelephony != null;
@@ -127,7 +127,7 @@ public class MainService extends Service {
                     deviceId = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
                 }
             }
-            catch(RuntimeException e) {
+            catch(Exception e) {
                 return "";
             }
         }
