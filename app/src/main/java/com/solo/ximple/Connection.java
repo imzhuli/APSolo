@@ -128,6 +128,7 @@ public class Connection implements DnsClient.Delegate{
             connectionEstablished = socketChannel.connect(address);
             socketChannel.register(selector, SelectionKey.OP_CONNECT | SelectionKey.OP_READ, this);
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, Boolean.valueOf(true));
                 socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, Integer.valueOf(4096_000));
                 socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, Integer.valueOf(4096_000));
             }
