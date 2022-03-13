@@ -134,6 +134,7 @@ public class PrxServiceThread {
                             try {
                                 channel.finishConnect();
                                 connection.flush();
+                                prxPushConnectionEstablished(connection.getConnectionId());
                             } catch (IOException e) {
                                 needClose = true;
                             } catch (NoConnectionPendingException e) {
@@ -253,6 +254,8 @@ public class PrxServiceThread {
         if (prxServerConnectionError) {
             return;
         }
+
+        AppLog.D("RequestFromServer, CommandId=" + request.header.CommandId);
         switch (request.header.CommandId) {
             case CommandId.ServerCheck: {
                 AppLog.D("ServerCheck");
@@ -344,6 +347,19 @@ public class PrxServiceThread {
             prxServerConnection.flush();
         } catch (IOException e) {
             AppLog.E("Flush proxy output error: " + e);
+            prxServerConnectionError = true;
+        }
+    }
+
+    private static void prxPushConnectionEstablished(long connectionId)
+    {
+        if (prxServerConnectionError) {
+            return;
+        }
+        try {
+            byte[] raw = ProtocolConnectionEstablished.buildRequest(connectionId);
+            prxServerConnection.postRawData(raw);
+        } catch (IOException e) {
             prxServerConnectionError = true;
         }
     }

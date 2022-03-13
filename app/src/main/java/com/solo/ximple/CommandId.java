@@ -16,6 +16,7 @@ public class CommandId {
 	public static final int ConnectionPayload = 0x07;
 	public static final int CheckKey = 0x08;
 	public static final int NewHostConnection = 0x09;
+	public static final int ConnectionEstablished = 0x0A;
 
 	public static final int ServerCheck =0x00FF;
 	public static final int ErrorLogReport = 0xFFFF;
