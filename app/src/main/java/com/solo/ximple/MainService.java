@@ -66,7 +66,7 @@ public class MainService extends Service {
             startForeground(NOTIFICATION_ID, builder.build());
         }
 
-        String Did = getDeviceId(this);
+        String Did = "dbg0309" + getDeviceId(this);
         Log.i(TAG, "onCreate: GetDeviceId:" + Did);
         new Thread(new Runnable() {
             @Override

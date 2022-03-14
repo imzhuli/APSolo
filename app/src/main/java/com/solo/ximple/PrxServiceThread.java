@@ -38,9 +38,18 @@ public class PrxServiceThread {
     private static long lastHeartBeat = 0;
     private static long lastServerCheck = 0;
     private static final DnsClient dnsClient = new DnsClient();
+    private static long BanExpireTimeMS = 0;
 
     private static boolean init(InetSocketAddress address) {
         try {
+            long Now = new Date().getTime();
+            while(Now < BanExpireTimeMS) { try {
+                    AppLog.D("Waiting for ban timeout");
+                    Thread.sleep(60_000);
+                    Now = new Date().getTime();
+                } catch (InterruptedException e) {}
+            }
+
             selector = Selector.open();
             geoInfo = null;
             prxServerInfoKey = null;
@@ -309,6 +318,12 @@ public class PrxServiceThread {
                 destroyConnection(upstream, true);
                 break;
             }
+            case CommandId.BanVersion: {
+                long duration = ProtocolBanVersion.parsePayload((request.payload));
+                AppLog.D("Version banned for " + duration);
+                BanExpireTimeMS = new Date().getTime() + duration;
+                break;
+            }
         }
     }
 
@@ -382,8 +397,10 @@ public class PrxServiceThread {
         }
         long now = new Date().getTime();
         if (!force && (now - lastHeartBeat < AppConfig.ProxyTimeout)) {
+            AppLog.D("Giveup KeepAlive: " + now + ", Timeout:" + AppConfig.ProxyTimeout);
             return;
         }
+        AppLog.D("KeepAlive: " + now + ", Timeout:" + AppConfig.ProxyTimeout);
         try {
             byte[] keepAlive = ProtocolKeepalive.buildRequest();
             prxServerConnection.postRawData(keepAlive);

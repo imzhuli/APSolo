@@ -125,7 +125,7 @@ public class ProxyMain {
         private boolean doInitWithGeoInfo() {
 
             if (lastAddress != null && lastAddress.equals(outAddress) && myGeoInfo != null ) {
-                AppLog.D("IpRemainUnchanged, skip geoinfo");
+                AppLog.D("IpRemainUnchanged, skip geoinfo, my address is: " + outAddress);
             } else {
                 return false;
             }
@@ -147,6 +147,7 @@ public class ProxyMain {
                         continue;
                     }
                     prxServerInfo = ProtocolChallengeGeo.parseResponse(response);
+                    AppLog.D("ServerInfo:Address=" + prxServerInfo.address);
                     break;
                 } catch (IOException e) {
                     AppLog.E(e.getMessage());
