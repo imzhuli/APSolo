@@ -1,5 +1,9 @@
 package com.solo.ximple.dns;
 
+import android.content.Context;
+
+import com.solo.ximple.AppLog;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -27,8 +31,15 @@ public class DnsClient {
     }
 
     public boolean init(String[] servers) {
+        return init(servers, null);
+    }
+    public boolean init(String[] servers, Object contextObject) {
+        Context context = null;
+        if (contextObject instanceof Context) {
+            context = (Context) contextObject;
+        }
         if (servers == null) {
-            servers = new DnsServersDetector(null).getServers();
+            servers = new DnsServersDetector(context).getServers();
         }
         if (servers.length == 0) {
             return false;

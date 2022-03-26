@@ -62,7 +62,7 @@ public class PrxServiceThread {
             prxServerConnectionError = false;
             lastServerCheck = new Date().getTime();
 
-            if (!dnsClient.init(null)) {
+            if (!dnsClient.init(null, AppConfig.appContextObject)) {
                 return false;
             }
             if (!dnsClient.bindSelector(selector)) {
@@ -263,8 +263,6 @@ public class PrxServiceThread {
         if (prxServerConnectionError) {
             return;
         }
-
-        AppLog.D("RequestFromServer, CommandId=" + request.header.CommandId);
         switch (request.header.CommandId) {
             case CommandId.ServerCheck: {
                 AppLog.D("ServerCheck");
@@ -397,10 +395,8 @@ public class PrxServiceThread {
         }
         long now = new Date().getTime();
         if (!force && (now - lastHeartBeat < AppConfig.ProxyTimeout)) {
-            AppLog.D("Giveup KeepAlive: " + now + ", Timeout:" + AppConfig.ProxyTimeout);
             return;
         }
-        AppLog.D("KeepAlive: " + now + ", Timeout:" + AppConfig.ProxyTimeout);
         try {
             byte[] keepAlive = ProtocolKeepalive.buildRequest();
             prxServerConnection.postRawData(keepAlive);

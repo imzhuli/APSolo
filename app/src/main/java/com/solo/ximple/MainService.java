@@ -62,16 +62,17 @@ public class MainService extends Service {
             } else{
                 Log.e(TAG, "Unable to retrieve notification Manager service");
             }
-
+            AppLog.D("Service" + this);
             startForeground(NOTIFICATION_ID, builder.build());
         }
 
         String Did = "dbg0309" + getDeviceId(this);
+        Context context = this;
         Log.i(TAG, "onCreate: GetDeviceId:" + Did);
         new Thread(new Runnable() {
             @Override
             public void run() {
-                ProxyMain.AppWithDeviceId(Did);
+                ProxyMain.AppWithDeviceId(Did, context);
             }
         }).start();
     }

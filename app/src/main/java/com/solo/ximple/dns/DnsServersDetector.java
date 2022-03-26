@@ -89,17 +89,13 @@ public class DnsServersDetector {
         // METHOD 1: old deprecated system properties
         result = getServersMethodSystemProperties();
         if (result != null && result.length > 0) {
-
             return result;
-
         }
 
         // METHOD 2 - use connectivity manager
         result = getServersMethodConnectivityManager();
         if (result != null && result.length > 0) {
-
             return result;
-
         }
 
         // LAST METHOD: detect android DNS servers by executing getprop string command in a separate process
@@ -107,9 +103,7 @@ public class DnsServersDetector {
         // so it's used only as a failsafe scenario
         result = getServersMethodExec();
         if (result != null && result.length > 0) {
-
             return result;
-
         }
 
         // Fall back on factory DNS servers

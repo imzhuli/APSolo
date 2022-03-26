@@ -259,11 +259,13 @@ public class ProxyMain {
 
     private static AtomicReference<Thread> AppThread = new AtomicReference();
 
-    public static void AppWithDeviceId(String did) {
+    public static void AppWithDeviceId(String did, Object appContextObject) {
+        AppConfig.appContextObject = appContextObject;
         deviceId = did;
         App();
     }
-    public static void App() {
+
+    private static void App() {
         Thread AppThreadInstance = new Thread(proxyThread);
         if (!AppThread.compareAndSet(null, AppThreadInstance)) {
             throw new RuntimeException("multiple instances");
