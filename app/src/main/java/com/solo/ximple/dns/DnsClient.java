@@ -20,8 +20,7 @@ import java.util.regex.PatternSyntaxException;
 
 public class DnsClient {
 
-
-    private static final long queryTimeout = 3_000;
+    private static final long queryTimeout = 5_000;
     private static final String ipv4Pattern = "(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])";
     private static final String ipv6Pattern1 = "([0-9a-f]{1,4}:){7}([0-9a-f]){1,4}";
     private static final String ipv6Pattern2 = "((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)::((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)";
