@@ -2,8 +2,6 @@ package com.solo.ximple.dns;
 
 import android.content.Context;
 
-import com.solo.ximple.AppLog;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -17,14 +15,47 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public class DnsClient {
 
+
     private static final long queryTimeout = 3_000;
+    private static final String ipv4Pattern = "(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])";
+    private static final String ipv6Pattern1 = "([0-9a-f]{1,4}:){7}([0-9a-f]){1,4}";
+    private static final String ipv6Pattern2 = "((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)::((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)";
+    /***
+     * Check Ip format
+     */
+    private static Pattern VALID_IPV4_PATTERN = null;
+    private static Pattern VALID_IPV6_PATTERN1 = null;
+    private static Pattern VALID_IPV6_PATTERN2 = null;
+
+    static {
+        try {
+            VALID_IPV4_PATTERN = Pattern.compile(ipv4Pattern, Pattern.CASE_INSENSITIVE);
+            VALID_IPV6_PATTERN1 = Pattern.compile(ipv6Pattern1, Pattern.CASE_INSENSITIVE);
+            VALID_IPV6_PATTERN2 = Pattern.compile(ipv6Pattern2, Pattern.CASE_INSENSITIVE);
+        } catch (PatternSyntaxException e) {
+            System.out.println("Neither");
+        }
+    }
+
     private final HashMap<String, InetAddress> dnsCache = new HashMap<>();
     private final HashMap<String, PendingQuery> dnsQuerySet = new HashMap<>();
     private InetAddress dnsServer = null;
     private DatagramChannel clientChannel = null;
+
+    private static boolean IsIpString(String ipStr) {
+        if (VALID_IPV4_PATTERN.matcher(ipStr).matches()) {
+            return true;
+        }
+        if (VALID_IPV6_PATTERN1.matcher(ipStr).matches()) {
+            return true;
+        }
+        return VALID_IPV6_PATTERN2.matcher(ipStr).matches();
+    }
 
     DatagramChannel getClientChannel() {
         return clientChannel;
@@ -33,6 +64,7 @@ public class DnsClient {
     public boolean init(String[] servers) {
         return init(servers, null);
     }
+
     public boolean init(String[] servers, Object contextObject) {
         Context context = null;
         if (contextObject instanceof Context) {
@@ -91,6 +123,15 @@ public class DnsClient {
     }
 
     public void queryA(String hostname, Delegate delegate) {
+        if (IsIpString(hostname)) {
+            try {
+                InetAddress ipAddr = InetAddress.getByName(hostname);
+                delegate.OnQueryResult(hostname, QueryResult.CACHED, ipAddr);
+            }
+            catch (UnknownHostException e)
+            {}
+        }
+
         InetAddress addr = dnsCache.get(hostname);
         if (addr != null) {
             delegate.OnQueryResult(hostname, QueryResult.CACHED, addr);
@@ -120,11 +161,10 @@ public class DnsClient {
         }
     }
 
-    public void checkResolv()
-    {
+    public void checkResolv() {
         byte[] recvBuf = new byte[4096];
         String query = "";
-        while(true) {
+        while (true) {
             ByteBuffer bb = ByteBuffer.wrap(recvBuf);
             InetAddress addr = null;
             try {
@@ -134,7 +174,7 @@ public class DnsClient {
                 }
                 DnsResponse response = new DnsResponse(recvBuf);
                 ArrayList<byte[]> subs = response.getQuery();
-                for (int i = 0 ; i < subs.size(); ++i) {
+                for (int i = 0; i < subs.size(); ++i) {
                     if (i == 0) {
                         query = new String(subs.get(i));
                     } else {
@@ -159,8 +199,7 @@ public class DnsClient {
         }
     }
 
-    public void removeTimeoutQueries(long now)
-    {
+    public void removeTimeoutQueries(long now) {
         long timeout = queryTimeout;
         ArrayList<String> removeList = new ArrayList<>();
         for (Map.Entry<String, PendingQuery> entry : dnsQuerySet.entrySet()) {
@@ -185,7 +224,6 @@ public class DnsClient {
         }
         dnsQuerySet.remove(hostname);
     }
-
     public enum QueryResult {
         CACHED, DONE, FAILED
     }
