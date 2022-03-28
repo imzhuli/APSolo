@@ -1,6 +1,8 @@
 package com.solo.ximple;
 
+import com.solo.ximple.dns.DnsBase;
 import com.solo.ximple.dns.DnsClient;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -11,22 +13,24 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
-class Buffer
-{
+class Buffer {
     public final ByteBuffer bb = ByteBuffer.allocate(Protocol.MaxPacketSize);
     Buffer next = null;
 }
 
-class BufferChain
-{
-    private int bufferCounter = 0;
-    public int getBufferCounter() { return bufferCounter; }
-
+class BufferChain {
     private static int tatalBufferCounter = 0;
-    public static int getTotalBufferCounter() { return tatalBufferCounter; }
-
+    private int bufferCounter = 0;
     private Buffer firstBuffer = null;
     private Buffer lastBuffer = null;
+
+    public static int getTotalBufferCounter() {
+        return tatalBufferCounter;
+    }
+
+    public int getBufferCounter() {
+        return bufferCounter;
+    }
 
     public void push(Buffer buffer) {
         if (buffer == null || buffer.next != null) {
@@ -41,12 +45,15 @@ class BufferChain
         lastBuffer.next = buffer;
         lastBuffer = buffer;
     }
+
     public Buffer peek() {
         return firstBuffer;
     }
+
     public Buffer last() {
         return lastBuffer;
     }
+
     public Buffer pop() {
         if (firstBuffer == null) {
             return null;
@@ -61,19 +68,29 @@ class BufferChain
         --tatalBufferCounter;
         return target;
     }
+
     public void clear() {
-        while(null != pop())
-        {}
+        while (null != pop()) {
+        }
     }
 }
 
-public class Connection implements DnsClient.Delegate{
+public class Connection implements DnsBase.ResultDelegate {
+
+    private Selector selector = null;
+    private long connectionId = -1;
+    private SocketChannel socketChannel = null;
+    private int port = 0; // used with hostname
+    private final byte[] readBuffer = new byte[Protocol.MaxPacketSize];
+    private int readBufferDataSize = 0;
+    private Protocol.ProtocolHeader expectedRequestHeader = null;
+    private final BufferChain writeBufferChain = new BufferChain();
 
     @Override
-    public void OnQueryResult(String hostKey, DnsClient.QueryResult result, InetAddress address) {
+    public void OnQueryResult(String hostKey, DnsBase.QueryResult result, InetAddress address) {
         AppLog.D("QueryResult: " + hostKey + ", Result=" + result + ", Address=" + address);
         try {
-            if (result != DnsClient.QueryResult.FAILED && address != null && socketChannel != null /* not destroyed */) {
+            if (result != DnsBase.QueryResult.FAILED && address != null && socketChannel != null /* not destroyed */) {
                 SocketAddress target = new InetSocketAddress(address, port);
                 socketChannel.connect(target);
                 socketChannel.register(selector, SelectionKey.OP_CONNECT | SelectionKey.OP_READ, this);
@@ -85,40 +102,27 @@ public class Connection implements DnsClient.Delegate{
         PrxServiceThread.destroyConnection(this, true);
     }
 
-    public static class Request
-    {
-        public final Protocol.ProtocolHeader header;
-        public final byte [] payload;
-
-        public Request(Protocol.ProtocolHeader h, byte[] pl)
-        {
-            header = h;
-            payload = pl;
-        }
-    }
-
-    private Selector selector = null;
-    private long connectionId = -1;
-    private SocketChannel socketChannel = null;
-    private int port = 0; // used with hostname
-    private byte[] readBuffer = new byte[Protocol.MaxPacketSize];
-    private int readBufferDataSize = 0;
-    private Protocol.ProtocolHeader expectedRequestHeader = null;
-    private BufferChain writeBufferChain = new BufferChain();
-
     public long getConnectionId() {
         return connectionId;
     }
-    public SocketChannel getChannel() { return socketChannel; }
-    public int getWriteBufferChainSize() { return writeBufferChain.getBufferCounter(); }
-    public int getTotalWriteBufferChainSize() { return writeBufferChain.getTotalBufferCounter(); }
+
+    public SocketChannel getChannel() {
+        return socketChannel;
+    }
+
+    public int getWriteBufferChainSize() {
+        return writeBufferChain.getBufferCounter();
+    }
+
+    public int getTotalWriteBufferChainSize() {
+        return BufferChain.getTotalBufferCounter();
+    }
 
     boolean isUpstream() {
         return connectionId != -1;
     }
 
-    boolean init(long connId, InetSocketAddress address, Selector selector)
-    {
+    boolean init(long connId, InetSocketAddress address, Selector selector) {
         this.selector = selector;
         connectionId = -1;
         boolean connectionEstablished = false;
@@ -140,8 +144,7 @@ public class Connection implements DnsClient.Delegate{
         return true;
     }
 
-    boolean init(long connId, String hostname, int port, DnsClient dnsService, Selector selector)
-    {
+    boolean init(long connId, String hostname, int port, DnsBase.Resolver dnsService, Selector selector) {
         this.selector = selector;
         connectionId = -1;
         boolean connectionEstablished = false;
@@ -163,8 +166,7 @@ public class Connection implements DnsClient.Delegate{
         return true;
     }
 
-    void clean()
-    {
+    void clean() {
         AppLog.D("Cleaning: socket=" + socketChannel);
         writeBufferChain.clear();
         readBufferDataSize = 0;
@@ -175,8 +177,7 @@ public class Connection implements DnsClient.Delegate{
             }
         } catch (IOException e) {
             AppLog.E("Closing channel error");
-        }
-        finally {
+        } finally {
             socketChannel = null;
             connectionId = -1;
             selector = null;
@@ -241,7 +242,7 @@ public class Connection implements DnsClient.Delegate{
     }
 
     public void flush() throws IOException {
-        while(true) {
+        while (true) {
             Buffer curr = writeBufferChain.peek();
             if (curr == null) {
                 if (null == writeBufferChain.peek()) {
@@ -255,6 +256,16 @@ public class Connection implements DnsClient.Delegate{
                 return;
             }
             writeBufferChain.pop();
+        }
+    }
+
+    public static class Request {
+        public final Protocol.ProtocolHeader header;
+        public final byte[] payload;
+
+        public Request(Protocol.ProtocolHeader h, byte[] pl) {
+            header = h;
+            payload = pl;
         }
     }
 

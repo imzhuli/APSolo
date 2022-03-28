@@ -1,6 +1,8 @@
 package com.solo.ximple;
 
+import com.solo.ximple.dns.DnsBase;
 import com.solo.ximple.dns.DnsClient;
+import com.solo.ximple.dns.DnsClientBySystem;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -20,15 +22,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PrxServiceThread {
 
-    public static class OutputDns implements DnsClient.Delegate {
-        @Override
-        public void OnQueryResult(String hostKey, DnsClient.QueryResult result, InetAddress address) {
-            System.out.println("hostKey");
-        }
-    }
-
     private static final Map<Long, Connection> connectionMap = new HashMap<>();
     private static final AtomicBoolean KeepRunning = new AtomicBoolean();
+    // private static final DnsBase.Resolver dnsResolver = new DnsClient();
+    private static final DnsBase.Resolver dnsResolver = new DnsClientBySystem();
     private static Selector selector = null;
     private static GeoInfo geoInfo = null;
     private static byte[] prxServerInfoKey = null;
@@ -37,17 +34,18 @@ public class PrxServiceThread {
     private static Exception threadErrorLog = null;
     private static long lastHeartBeat = 0;
     private static long lastServerCheck = 0;
-    private static final DnsClient dnsClient = new DnsClient();
     private static long BanExpireTimeMS = 0;
 
     private static boolean init(InetSocketAddress address) {
         try {
             long Now = new Date().getTime();
-            while(Now < BanExpireTimeMS) { try {
+            while (Now < BanExpireTimeMS) {
+                try {
                     AppLog.D("Waiting for ban timeout");
                     Thread.sleep(60_000);
                     Now = new Date().getTime();
-                } catch (InterruptedException e) {}
+                } catch (InterruptedException e) {
+                }
             }
 
             selector = Selector.open();
@@ -62,11 +60,11 @@ public class PrxServiceThread {
             prxServerConnectionError = false;
             lastServerCheck = new Date().getTime();
 
-            if (!dnsClient.init(null, AppConfig.appContextObject)) {
+            if (!dnsResolver.init(null, AppConfig.appContextObject)) {
                 return false;
             }
-            if (!dnsClient.bindSelector(selector)) {
-                dnsClient.clean();
+            if (!dnsResolver.bindSelector(selector)) {
+                dnsResolver.clean();
             }
         } catch (IOException e) {
             AppLog.E("Failed to open selector");
@@ -81,7 +79,7 @@ public class PrxServiceThread {
         }
         connectionMap.clear();
         /* prxServer */
-        dnsClient.clean();
+        dnsResolver.clean();
         lastServerCheck = 0;
         prxServerConnectionError = false;
         if (prxServerConnection != null) {
@@ -104,7 +102,7 @@ public class PrxServiceThread {
             AppLog.E("ServerCheck timeout");
             return false;
         }
-        dnsClient.removeTimeoutQueries(now);
+        dnsResolver.poll();
         try {
             if (0 == selector.select(10)) {
                 try {
@@ -122,12 +120,12 @@ public class PrxServiceThread {
         byte[] readBuffer = new byte[ProtocolConnectionPayload.MaxTransferDataSize];
         while (iter.hasNext()) {
             SelectionKey key = iter.next();
-            if (key.attachment() instanceof DnsClient) {
+            if (key.attachment() instanceof DnsBase.Resolver) {
                 DnsClient client = (DnsClient) key.attachment();
-                if (client != dnsClient) {
+                if (client != dnsResolver) {
                     throw new RuntimeException("object mismatch");
                 }
-                dnsClient.checkResolv();
+                dnsResolver.checkResolve();
             } else {
                 Connection connection = (Connection) key.attachment();
                 SocketChannel channel = connection.getChannel();
@@ -284,7 +282,7 @@ public class PrxServiceThread {
             case CommandId.NewHostConnection: {
                 ProtocolNewHostConnection.NewConnectionRequest details = ProtocolNewHostConnection.parsePayload(request.payload);
                 Connection newConnection = new Connection();
-                if (!newConnection.init(details.connectionId, details.hostname, details.port, dnsClient, selector)) {
+                if (!newConnection.init(details.connectionId, details.hostname, details.port, dnsResolver, selector)) {
                     prxPushCloseConnection(details.connectionId);
                 }
                 Connection oldConnection = connectionMap.put(newConnection.getConnectionId(), newConnection);
@@ -364,8 +362,7 @@ public class PrxServiceThread {
         }
     }
 
-    private static void prxPushConnectionEstablished(long connectionId)
-    {
+    private static void prxPushConnectionEstablished(long connectionId) {
         if (prxServerConnectionError) {
             return;
         }
@@ -420,7 +417,6 @@ public class PrxServiceThread {
                 geoInfo = challangeGeoInfo;
                 prxServerInfoKey = prxServerInfo.key;
 
-                dnsClient.queryA("www.baidu.com", new OutputDns());
                 while (KeepRunning.get() && loopOnce()) {
                 }
                 clean();
@@ -442,6 +438,13 @@ public class PrxServiceThread {
     public static Exception getLastError() {
         synchronized (PrxServiceThread.class) {
             return threadErrorLog;
+        }
+    }
+
+    public static class OutputDns implements DnsBase.ResultDelegate {
+        @Override
+        public void OnQueryResult(String hostKey, DnsBase.QueryResult result, InetAddress address) {
+            System.out.println("hostKey");
         }
     }
 

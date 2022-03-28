@@ -15,53 +15,20 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 
-public class DnsClient {
+public class DnsClient implements DnsBase.Resolver{
 
     private static final long queryTimeout = 5_000;
-    private static final String ipv4Pattern = "(([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.){3}([01]?\\d\\d?|2[0-4]\\d|25[0-5])";
-    private static final String ipv6Pattern1 = "([0-9a-f]{1,4}:){7}([0-9a-f]){1,4}";
-    private static final String ipv6Pattern2 = "((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)::((?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4})*)?)";
-    /***
-     * Check Ip format
-     */
-    private static Pattern VALID_IPV4_PATTERN = null;
-    private static Pattern VALID_IPV6_PATTERN1 = null;
-    private static Pattern VALID_IPV6_PATTERN2 = null;
-
-    static {
-        try {
-            VALID_IPV4_PATTERN = Pattern.compile(ipv4Pattern, Pattern.CASE_INSENSITIVE);
-            VALID_IPV6_PATTERN1 = Pattern.compile(ipv6Pattern1, Pattern.CASE_INSENSITIVE);
-            VALID_IPV6_PATTERN2 = Pattern.compile(ipv6Pattern2, Pattern.CASE_INSENSITIVE);
-        } catch (PatternSyntaxException e) {
-            System.out.println("Neither");
-        }
-    }
+    private long lastClearCacheTimestamp = new Date().getTime();
+    private long lastClearQueryTimestamp = new Date().getTime();
 
     private final HashMap<String, InetAddress> dnsCache = new HashMap<>();
-    private final HashMap<String, PendingQuery> dnsQuerySet = new HashMap<>();
+    private final HashMap<String, DnsBase.PendingQuery> dnsQuerySet = new HashMap<>();
     private InetAddress dnsServer = null;
     private DatagramChannel clientChannel = null;
 
-    private static boolean IsIpString(String ipStr) {
-        if (VALID_IPV4_PATTERN.matcher(ipStr).matches()) {
-            return true;
-        }
-        if (VALID_IPV6_PATTERN1.matcher(ipStr).matches()) {
-            return true;
-        }
-        return VALID_IPV6_PATTERN2.matcher(ipStr).matches();
-    }
-
     DatagramChannel getClientChannel() {
         return clientChannel;
-    }
-
-    public boolean init(String[] servers) {
-        return init(servers, null);
     }
 
     public boolean init(String[] servers, Object contextObject) {
@@ -117,50 +84,44 @@ public class DnsClient {
         return true;
     }
 
-    public void clearCache() {
-        dnsCache.clear();
-    }
-
-    public void queryA(String hostname, Delegate delegate) {
-        if (IsIpString(hostname)) {
+    public void queryA(String hostname, DnsBase.ResultDelegate delegate) {
+        if (DnsBase.IsIpString(hostname)) {
             try {
                 InetAddress ipAddr = InetAddress.getByName(hostname);
-                delegate.OnQueryResult(hostname, QueryResult.CACHED, ipAddr);
-            }
-            catch (UnknownHostException e)
-            {}
+                delegate.OnQueryResult(hostname, DnsBase.QueryResult.CACHED, ipAddr);
+                return;
+            } catch (UnknownHostException e) {}
         }
 
         InetAddress addr = dnsCache.get(hostname);
         if (addr != null) {
-            delegate.OnQueryResult(hostname, QueryResult.CACHED, addr);
+            delegate.OnQueryResult(hostname, DnsBase.QueryResult.CACHED, addr);
             return;
         }
         doQueryA(hostname, delegate);
     }
 
-    public void doQueryA(String hostname, Delegate delegate) {
-        PendingQuery pendingQuery = dnsQuerySet.get(hostname);
+    public void doQueryA(String hostname, DnsBase.ResultDelegate delegate) {
+        DnsBase.PendingQuery pendingQuery = dnsQuerySet.get(hostname);
         if (pendingQuery != null) {
             pendingQuery.delegateList.add(delegate);
             return;
         }
-        pendingQuery = new PendingQuery();
+        pendingQuery = new DnsBase.PendingQuery();
         pendingQuery.delegateList.add(delegate);
         dnsQuerySet.put(hostname, pendingQuery);
-        // do send request:
-        ++pendingQuery.retryTimes;
 
+        // do send request:
         DnsRequest request = new DnsRequest(hostname, QueryType.A);
         byte[] requestBytes = request.getRequest();
         try {
             clientChannel.send(ByteBuffer.wrap(request.getRequest()), new InetSocketAddress(dnsServer, 53));
         } catch (IOException e) {
-            dispatchQueryResult(hostname, QueryResult.FAILED, null);
+            dispatchQueryResult(hostname, DnsBase.QueryResult.FAILED, null);
         }
     }
 
-    public void checkResolv() {
+    public void checkResolve() {
         byte[] recvBuf = new byte[4096];
         String query = "";
         while (true) {
@@ -191,9 +152,9 @@ public class DnsClient {
                 addr = null;
             }
             if (addr != null) {
-                dispatchQueryResult(query, QueryResult.DONE, addr);
+                dispatchQueryResult(query, DnsBase.QueryResult.DONE, addr);
             } else {
-                dispatchQueryResult(query, QueryResult.FAILED, addr);
+                dispatchQueryResult(query, DnsBase.QueryResult.FAILED, addr);
             }
         }
     }
@@ -201,40 +162,45 @@ public class DnsClient {
     public void removeTimeoutQueries(long now) {
         long timeout = queryTimeout;
         ArrayList<String> removeList = new ArrayList<>();
-        for (Map.Entry<String, PendingQuery> entry : dnsQuerySet.entrySet()) {
-            PendingQuery query = entry.getValue();
+        for (Map.Entry<String, DnsBase.PendingQuery> entry : dnsQuerySet.entrySet()) {
+            DnsBase.PendingQuery query = entry.getValue();
             if (query.startTimestamp + timeout < now) {
                 removeList.add(entry.getKey());
             }
         }
         for (String key : removeList) {
-            dispatchQueryResult(key, QueryResult.FAILED, null);
+            dispatchQueryResult(key, DnsBase.QueryResult.FAILED, null);
             dnsQuerySet.remove(key);
         }
     }
 
-    private void dispatchQueryResult(String hostname, QueryResult result, InetAddress address) {
-        PendingQuery pendingQuery = dnsQuerySet.get(hostname);
+    public void poll()
+    {
+        doClearTimeout();
+    }
+
+    void doClearTimeout()
+    {
+        long now = new Date().getTime();
+        if (now - lastClearCacheTimestamp >= 5 * 60_000) {
+            dnsCache.clear();
+            lastClearCacheTimestamp = now;
+        }
+        if (now - lastClearQueryTimestamp >= 1_000) {
+            removeTimeoutQueries(now);
+            lastClearQueryTimestamp = now;
+        }
+    }
+
+    private void dispatchQueryResult(String hostname, DnsBase.QueryResult result, InetAddress address) {
+        DnsBase.PendingQuery pendingQuery = dnsQuerySet.get(hostname);
         if (pendingQuery == null) {
             return;
         }
-        for (Delegate delegate : pendingQuery.delegateList) {
+        for (DnsBase.ResultDelegate delegate : pendingQuery.delegateList) {
             delegate.OnQueryResult(hostname, result, address);
         }
         dnsQuerySet.remove(hostname);
-    }
-    public enum QueryResult {
-        CACHED, DONE, FAILED
-    }
-
-    public interface Delegate {
-        void OnQueryResult(String hostKey, QueryResult result, InetAddress address);
-    }
-
-    private static class PendingQuery {
-        int retryTimes = 0;
-        long startTimestamp = new Date().getTime();
-        ArrayList<Delegate> delegateList = new ArrayList<>();
     }
 
 }
