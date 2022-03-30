@@ -1,11 +1,6 @@
 package com.solo.ximple.dns;
 
-import android.os.Build;
-
-import androidx.annotation.RequiresApi;
-
 import com.solo.ximple.SyncedQueue;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.Selector;
@@ -193,6 +188,9 @@ public class DnsClientBySystem implements DnsBase.Resolver {
         DnsBase.PendingQuery pendingQuery = dnsQuerySet.get(hostname);
         if (pendingQuery == null) {
             return;
+        }
+        if (result == DnsBase.QueryResult.DONE && null != address) {
+            dnsCache.put(hostname, address);
         }
         for (DnsBase.ResultDelegate delegate : pendingQuery.delegateList) {
             delegate.OnQueryResult(hostname, result, address);

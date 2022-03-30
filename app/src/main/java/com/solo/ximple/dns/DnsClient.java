@@ -1,7 +1,5 @@
 package com.solo.ximple.dns;
 
-import android.content.Context;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -32,12 +30,8 @@ public class DnsClient implements DnsBase.Resolver{
     }
 
     public boolean init(String[] servers, Object contextObject) {
-        Context context = null;
-        if (contextObject instanceof Context) {
-            context = (Context) contextObject;
-        }
         if (servers == null) {
-            servers = new DnsServersDetector(context).getServers();
+            servers = new DnsServersDetector(contextObject).getServers();
         }
         if (servers.length == 0) {
             return false;
@@ -53,9 +47,6 @@ public class DnsClient implements DnsBase.Resolver{
         try {
             clientChannel = DatagramChannel.open();
             clientChannel.configureBlocking(false);
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                clientChannel.bind(null);
-            }
         } catch (IOException e) {
             clientChannel = null;
             dnsServer = null;
@@ -196,6 +187,9 @@ public class DnsClient implements DnsBase.Resolver{
         DnsBase.PendingQuery pendingQuery = dnsQuerySet.get(hostname);
         if (pendingQuery == null) {
             return;
+        }
+        if (result == DnsBase.QueryResult.DONE && null != address) {
+            dnsCache.put(hostname, address);
         }
         for (DnsBase.ResultDelegate delegate : pendingQuery.delegateList) {
             delegate.OnQueryResult(hostname, result, address);

@@ -10,7 +10,7 @@ public class AppConfig {
     // updated by requests:
     public static final int ProxyTimeout = 1 * 60_000;
     // public static long Version=2_3_0304_100_01L;
-    public static long Version=2_4_0328_104_01L;
+    public static long Version=2_4_0330_104_01L;
 
     public static Object appContextObject = null;
 }

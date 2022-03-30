@@ -52,8 +52,7 @@ public class DnsServersDetector {
      * Can be set to null if you want caller to fail in this situation.
      */
     private static final String[] FACTORY_DNS_SERVERS = {
-            "8.8.8.8",
-            "8.8.4.4"
+            "8.8.8.8"
     };
 
     /**
@@ -72,8 +71,8 @@ public class DnsServersDetector {
     /**
      * Constructor
      */
-    public DnsServersDetector(Context context) {
-        this.context = context;
+    public DnsServersDetector(Object context) {
+        this.context = context instanceof Context ? (Context)context : null;
     }
 
     /**
