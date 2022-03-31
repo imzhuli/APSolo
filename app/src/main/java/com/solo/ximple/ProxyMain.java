@@ -106,6 +106,10 @@ public class ProxyMain {
                         continue;
                     }
                     RegionAddress regionAddress = ProtocolChallenge.parseResponse(response);
+                    if (regionAddress == null) {
+                        AppLog.E("Failed to parse region info");
+                        return false;
+                    }
                     outAddress = regionAddress.address;
                     if (regionAddress.countryId != 0 && regionAddress.cityId != 0) {
                         myGeoInfo = new GeoInfo();
@@ -114,7 +118,7 @@ public class ProxyMain {
                         break;
                     }
                     break;
-                } catch (IOException e) {
+                } catch (Exception e) {
                     AppLog.E(e.getMessage());
                     return false;
                 }
