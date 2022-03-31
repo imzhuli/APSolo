@@ -153,7 +153,7 @@ public class ProxyMain {
                     }
                     prxServerInfo = ProtocolChallengeGeo.parseResponse(response);
                     if (null == prxServerInfo.address) {
-                        AppLog.E("Failed to parse server address:" + prxServerInfo.address);
+                        AppLog.E("Failed to parse server address");
                         return false;
                     }
                     AppLog.D("ServerInfo:Address=" + prxServerInfo.address);
