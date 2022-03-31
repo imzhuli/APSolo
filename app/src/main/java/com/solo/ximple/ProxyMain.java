@@ -148,9 +148,13 @@ public class ProxyMain {
                         continue;
                     }
                     prxServerInfo = ProtocolChallengeGeo.parseResponse(response);
+                    if (null == prxServerInfo.address) {
+                        AppLog.E("Failed to parse server address:" + prxServerInfo.address);
+                        return false;
+                    }
                     AppLog.D("ServerInfo:Address=" + prxServerInfo.address);
                     break;
-                } catch (IOException e) {
+                } catch (Exception e) {
                     AppLog.E(e.getMessage());
                     return false;
                 }
