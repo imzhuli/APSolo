@@ -86,6 +86,7 @@ public class ProxyMain {
                     localUdpSocket.setSoTimeout(AppConfig.CC_ChallangeSocketTimeout);
                 } catch (SocketException e) {
                     AppLog.E(e.getMessage());
+                    return false;
                 }
             }
             try {
