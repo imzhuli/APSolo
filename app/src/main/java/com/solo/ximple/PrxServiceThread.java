@@ -1,7 +1,6 @@
 package com.solo.ximple;
 
 import com.solo.ximple.dns.DnsBase;
-import com.solo.ximple.dns.DnsClient;
 import com.solo.ximple.dns.DnsClientBySystem;
 
 import java.io.IOException;
@@ -121,7 +120,7 @@ public class PrxServiceThread {
         while (iter.hasNext()) {
             SelectionKey key = iter.next();
             if (key.attachment() instanceof DnsBase.Resolver) {
-                DnsClient client = (DnsClient) key.attachment();
+                DnsBase.Resolver client = (DnsBase.Resolver) key.attachment();
                 if (client != dnsResolver) {
                     throw new RuntimeException("object mismatch");
                 }

@@ -1,7 +1,6 @@
 package com.solo.ximple;
 
 import com.solo.ximple.dns.DnsBase;
-import com.solo.ximple.dns.DnsClient;
 
 import java.io.IOException;
 import java.net.InetAddress;
