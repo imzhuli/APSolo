@@ -6,7 +6,7 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 
 public class ProtocolChallengeGeo {
 
@@ -19,7 +19,7 @@ public class ProtocolChallengeGeo {
         ByteBuffer pbb = ByteBuffer.wrap(payload);
         pbb.order(Protocol.Endian);
         pbb.put(outAddress.getAddress());
-        pbb.put(city.getBytes(StandardCharsets.UTF_8));
+        pbb.put(city.getBytes(Charset.forName("UTF-8")));
 
         ByteBuffer bb = ByteBuffer.wrap(ret);
         bb.order(Protocol.Endian);
